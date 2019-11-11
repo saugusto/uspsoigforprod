@@ -1,6 +1,4441 @@
 {
 	"name": "APM_SQL_Load",
 	"properties": {
+		"activities": [
+			{
+				"name": "ForEach_ozq",
+				"type": "ForEach",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.cw_items",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Copy_ozq",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [
+								{
+									"name": "Source",
+									"value": "@{item().source.tableName}"
+								},
+								{
+									"name": "Destination",
+									"value": "@{item().destination.tableName}"
+								}
+							],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource"
+								},
+								"sink": {
+									"type": "SqlDWSink",
+									"allowPolyBase": false,
+									"preCopyScript": {
+										"value": "@{concat('Truncate table',item().destination.tableName)}",
+										"type": "Expression"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"value": "@item().copyActivity.translator",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "ADF_email",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "ForEach_ozq",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": "https://prod-31.eastus.logic.azure.com:443/workflows/2e61454e33cc4661b42ed889815be88d/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=DDOtN3w-Akh-veUVwAfMKMbAPzKXP5NqsYVdqAYY9TA",
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json"
+					},
+					"body": {
+						"DataFactoryName": "@{pipeline().DataFactory}",
+						"PipelineName": "@{pipeline().Pipeline}",
+						"Subject": "APM_SQL_Load Pipeline finished!",
+						"ErrorMessage": "APM SQL Load to DW is completed",
+						"EmailTo": "hchalasani@uspsoig.gov"
+					}
+				}
+			},
+			{
+				"name": "ADF_email1",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "ForEach_ozq",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": "https://prod-31.eastus.logic.azure.com:443/workflows/2e61454e33cc4661b42ed889815be88d/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=DDOtN3w-Akh-veUVwAfMKMbAPzKXP5NqsYVdqAYY9TA",
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json"
+					},
+					"body": {
+						"DataFactoryName": "@{pipeline().DataFactory}",
+						"PipelineName": "@{pipeline().Pipeline}",
+						"Subject": "APM_SQL_Load Pipeline Failed!",
+						"ErrorMessage": "APM SQL Load to DW is failed",
+						"EmailTo": "hchalasani@uspsoig.gov"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"cw_items": {
+				"type": "Array",
+				"defaultValue": [
+					{
+						"source": {
+							"tableName": "[APM].[AuditReports]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[AuditReports]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[AuditReports]', 'U') IS NULL CREATE TABLE [APM].[AuditReports] ([AuditReportID] int,\n[ReportNumber] varchar(25),\n[ProjectID] int,\n[Title] varchar(255),\n[TitleRedacted] varchar(255),\n[IssueDate] datetime,\n[IsIssued] bit,\n[IsSARCable] bit,\n[FiscalYear] int,\n[ManagementDecision] bit,\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int,\n[SarcPeriod] varchar(30),\n[ReportTypeID] int,\n[RequiredAuditWork] bit,\n[CorrectiveAction] bit,\n[CorrectiveActionComments] varchar(4000),\n[KeyStakeholder] bit,\n[RequestedByIG] bit,\n[ReferralsMade] bit,\n[ARCH_ReportID] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "AuditReportID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "AuditReportID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "ReportNumber"
+										},
+										"sink": {
+											"type": "String",
+											"name": "ReportNumber"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "Title"
+										},
+										"sink": {
+											"type": "String",
+											"name": "Title"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "TitleRedacted"
+										},
+										"sink": {
+											"type": "String",
+											"name": "TitleRedacted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "IssueDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "IssueDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsIssued"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsIssued"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsSARCable"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsSARCable"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "FiscalYear"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "FiscalYear"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "ManagementDecision"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "ManagementDecision"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "SarcPeriod"
+										},
+										"sink": {
+											"type": "String",
+											"name": "SarcPeriod"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ReportTypeID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ReportTypeID"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "RequiredAuditWork"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "RequiredAuditWork"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "CorrectiveAction"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "CorrectiveAction"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "CorrectiveActionComments"
+										},
+										"sink": {
+											"type": "String",
+											"name": "CorrectiveActionComments"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "KeyStakeholder"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "KeyStakeholder"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "RequestedByIG"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "RequestedByIG"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "ReferralsMade"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "ReferralsMade"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ARCH_ReportID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ARCH_ReportID"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[Comments]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[Comments]"
+						},
+						"copySink": {
+							"preCopyScript": null
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CommentID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CommentID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CommentTypeID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CommentTypeID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "Comment"
+										},
+										"sink": {
+											"type": "String",
+											"name": "Comment"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectSuspensionID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectSuspensionID"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[AuthService].[Staff]"
+						},
+						"destination": {
+							"tableName": "[AuthService].[Staff]"
+						},
+						"copySink": {
+							"preCopyScript": null
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "StaffID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "StaffID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "StaffNetworkID"
+										},
+										"sink": {
+											"type": "String",
+											"name": "StaffNetworkID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "StaffParisID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "StaffParisID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "FirstName"
+										},
+										"sink": {
+											"type": "String",
+											"name": "FirstName"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "MiddleName"
+										},
+										"sink": {
+											"type": "String",
+											"name": "MiddleName"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "LastName"
+										},
+										"sink": {
+											"type": "String",
+											"name": "LastName"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "EmployeeGroup"
+										},
+										"sink": {
+											"type": "String",
+											"name": "EmployeeGroup"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "AccessGroup"
+										},
+										"sink": {
+											"type": "String",
+											"name": "AccessGroup"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "AgentLocation"
+										},
+										"sink": {
+											"type": "String",
+											"name": "AgentLocation"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "Title"
+										},
+										"sink": {
+											"type": "String",
+											"name": "Title"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "Email"
+										},
+										"sink": {
+											"type": "String",
+											"name": "Email"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "DirectorateCode"
+										},
+										"sink": {
+											"type": "String",
+											"name": "DirectorateCode"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "JoinDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "JoinDate"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "WorkPhone"
+										},
+										"sink": {
+											"type": "String",
+											"name": "WorkPhone"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "HomePhone"
+										},
+										"sink": {
+											"type": "String",
+											"name": "HomePhone"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "CellPhone"
+										},
+										"sink": {
+											"type": "String",
+											"name": "CellPhone"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DIRID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DIRID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "SSAID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "SSAID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "AIGID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "AIGID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DAIGID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DAIGID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "EID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "EID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "FieldOfficeId"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "FieldOfficeId"
+										}
+									},
+									{
+										"source": {
+											"type": "string",
+											"name": "OrgCode"
+										},
+										"sink": {
+											"type": "string",
+											"name": "OrgCode"
+										}
+									},
+									{
+										"source": {
+											"type": "string",
+											"name": "PayBand"
+										},
+										"sink": {
+											"type": "string",
+											"name": "PayBand"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[Findings]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[Findings]"
+						},
+						"copySink": {
+							"preCopyScript": null
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "FindingID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "FindingID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "FindingNumber"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "FindingNumber"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "RootCauseID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "RootCauseID"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "RootCauseSummary"
+										},
+										"sink": {
+											"type": "String",
+											"name": "RootCauseSummary"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "FindingDetail"
+										},
+										"sink": {
+											"type": "String",
+											"name": "FindingDetail"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[RootCauses_Lookup]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[RootCauses_Lookup]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM2_0]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[RootCauses_Lookup]', 'U') IS NULL CREATE TABLE [APM].[RootCauses_Lookup] ([RiskCategoryID] int,\n[RiskCategoryCode] varchar(4),\n[RiskCategory] varchar(100),\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int,\n[SortOrder] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "RootCauseID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "RootCauseID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "RootCauseCode"
+										},
+										"sink": {
+											"type": "String",
+											"name": "RootCauseCode"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "RootCause"
+										},
+										"sink": {
+											"type": "String",
+											"name": "RootCause"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[SuspensionReasons_Lookup]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[SuspensionReasons_Lookup]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM2_0]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[SuspensionReasons_Lookup]', 'U') IS NULL CREATE TABLE [APM].[SuspensionReasons_Lookup] ([RiskCategoryID] int,\n[RiskCategoryCode] varchar(4),\n[RiskCategory] varchar(100),\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int,\n[SortOrder] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "SuspensionReasonID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "SuspensionReasonID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "SuspensionReasonCode"
+										},
+										"sink": {
+											"type": "String",
+											"name": "SuspensionReasonCode"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "SuspensionReason"
+										},
+										"sink": {
+											"type": "String",
+											"name": "SuspensionReason"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[AuthService].[Delegation]"
+						},
+						"destination": {
+							"tableName": "[AuthService].[Delegation]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'AuthService') EXEC('Create Schema [AuthService]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[RootCauses_Lookup]', 'U') IS NULL CREATE TABLE [APM].[RootCauses_Lookup] ([RiskCategoryID] int,\n[RiskCategoryCode] varchar(4),\n[RiskCategory] varchar(100),\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int,\n[SortOrder] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UserDelegationId"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UserDelegationId"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DelegateeStaffId"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DelegateeStaffId"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DelegatedApplicationUserPersonaId"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DelegatedApplicationUserPersonaId"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "EffectiveDate"
+										},
+										"sink": {
+											"type": "datetime",
+											"name": "EffectiveDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ExpirationDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ExpirationDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreateDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreateDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DelegatorStaffID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DelegatorStaffID"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[FindingsRecommendationsXREF]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[FindingsRecommendationsXREF]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[FindingsRecommendationsXREF]', 'U') IS NULL CREATE TABLE [APM].[FindingsRecommendationsXREF] ([FindingsRecommendationID] int,\n[FindingID] int,\n[RecommendationID] int,\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "FindingsRecommendationID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "FindingsRecommendationID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "FindingID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "FindingID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "RecommendationID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "RecommendationID"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[ProjectMilestonesXREF]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[ProjectMilestonesXREF]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[ProjectMilestonesXREF]', 'U') IS NULL CREATE TABLE [APM].[ProjectMilestonesXREF] ([ProjectMilestonesID] int,\n[ProjectID] int,\n[MilestoneID] int,\n[TargetDate] datetime,\n[ReviseDate] datetime,\n[RealityDate] datetime,\n[ActualDate] datetime,\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectMilestonesID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectMilestonesID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "MilestoneID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "MilestoneID"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "TargetDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "TargetDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ReviseDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ReviseDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "RealityDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "RealityDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActualDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActualDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[ProjectRiskCategoriesXREF]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[ProjectRiskCategoriesXREF]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[ProjectRiskCategoriesXREF]', 'U') IS NULL CREATE TABLE [APM].[ProjectRiskCategoriesXREF] ([ProjectRiskCategoryxrefID] int,\n[ProjectID] int,\n[RiskCategoryID] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectRiskCategoryxrefID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectRiskCategoryxrefID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "RiskCategoryID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "RiskCategoryID"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[Projects]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[Projects]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[Projects]', 'U') IS NULL CREATE TABLE [APM].[Projects] ([ProjectID] int,\n[ProjectNumber] varchar(20),\n[FiscalYear] int,\n[Title] varchar(255),\n[DAIG] varchar(10),\n[DirectorateCode] varchar(10),\n[isAudit] bit,\n[ConvertDate] datetime,\n[ConvertBy] int,\n[EstDays] int,\n[EstHours] int,\n[StatusBy] int,\n[StatusDate] datetime,\n[EndDate] datetime,\n[EndComments] varchar(4000),\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int,\n[EndReasonID] int,\n[Nationwide] bit,\n[ProjectStatus] varchar(1),\n[Arch_ProjectID] int,\n[IgInterest] bit,\n[EstimatedTravelCost] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "ProjectNumber"
+										},
+										"sink": {
+											"type": "String",
+											"name": "ProjectNumber"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "FiscalYear"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "FiscalYear"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "Title"
+										},
+										"sink": {
+											"type": "String",
+											"name": "Title"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "DAIG"
+										},
+										"sink": {
+											"type": "String",
+											"name": "DAIG"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "DirectorateCode"
+										},
+										"sink": {
+											"type": "String",
+											"name": "DirectorateCode"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "isAudit"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "isAudit"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ConvertDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ConvertDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ConvertBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ConvertBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "EstDays"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "EstDays"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "EstHours"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "EstHours"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "StatusBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "StatusBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "StatusDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "StatusDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "EndDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "EndDate"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "EndComments"
+										},
+										"sink": {
+											"type": "String",
+											"name": "EndComments"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "EndReasonID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "EndReasonID"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "Nationwide"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "Nationwide"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "ProjectStatus"
+										},
+										"sink": {
+											"type": "String",
+											"name": "ProjectStatus"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "Arch_ProjectID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "Arch_ProjectID"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IgInterest"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IgInterest"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "EstimatedTravelCost"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "EstimatedTravelCost"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[ProjectSourcesXREF]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[ProjectSourcesXREF]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[ProjectSourcesXREF]', 'U') IS NULL CREATE TABLE [APM].[ProjectSourcesXREF] ([ProjectSourcexrefID] int,\n[ProjectID] int,\n[SourceID] int,\n[Detail] varchar(200),\n[ParisModelID] int,\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectSourcexrefID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectSourcexrefID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "SourceID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "SourceID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "Detail"
+										},
+										"sink": {
+											"type": "String",
+											"name": "Detail"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ParisModelID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ParisModelID"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[ProjectSuspensionsXREF]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[ProjectSuspensionsXREF]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[ProjectSuspensionsXREF]', 'U') IS NULL CREATE TABLE [APM].[ProjectSuspensionsXREF] ([ProjectSuspensionID] int,\n[ProjectID] int,\n[SuspensionReasonID] int,\n[SuspendDate] datetime,\n[RequestDate] datetime,\n[RequestBy] int,\n[SuspensionRequestStatusID] int,\n[ApproveDate] datetime,\n[ApproveBy] int,\n[RejectDate] datetime,\n[RejectBy] int,\n[SuspensionComments] varchar(4000),\n[ReopenDate] datetime,\n[ReopenBy] int,\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int,\n[UnSuspendDate] datetime);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectSuspensionID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectSuspensionID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "SuspensionReasonID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "SuspensionReasonID"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "SuspendDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "SuspendDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "RequestDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "RequestDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "RequestBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "RequestBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "SuspensionRequestStatusID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "SuspensionRequestStatusID"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ApproveDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ApproveDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ApproveBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ApproveBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "RejectDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "RejectDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "RejectBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "RejectBy"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "SuspensionComments"
+										},
+										"sink": {
+											"type": "String",
+											"name": "SuspensionComments"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ReopenDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ReopenDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ReopenBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ReopenBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UnSuspendDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UnSuspendDate"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[ProjectTeamRolesXREF]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[ProjectTeamRolesXREF]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[ProjectTeamRolesXREF]', 'U') IS NULL CREATE TABLE [APM].[ProjectTeamRolesXREF] ([ProjectTeamRoleID] int,\n[ProjectID] int,\n[TeamRoleId] int,\n[StaffID] int,\n[ActiveChangeDate] datetime,\n[ReleaseDate] datetime,\n[TargetDate] datetime,\n[IsActive] bit,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectTeamRoleID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectTeamRoleID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "TeamRoleId"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "TeamRoleId"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "StaffID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "StaffID"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ReleaseDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ReleaseDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "TargetDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "TargetDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[ProjectTypes_Lookup]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[ProjectTypes_Lookup]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[ProjectTypes_Lookup]', 'U') IS NULL CREATE TABLE [APM].[ProjectTypes_Lookup] ([ProjectTypeID] int,\n[ProjectTypeCode] varchar(4),\n[ProjectType] varchar(100),\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectTypeID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectTypeID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "ProjectTypeCode"
+										},
+										"sink": {
+											"type": "String",
+											"name": "ProjectTypeCode"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "ProjectType"
+										},
+										"sink": {
+											"type": "String",
+											"name": "ProjectType"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[Milestones_Lookup]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[Milestones_Lookup]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[Milestones_Lookup]', 'U') IS NULL CREATE TABLE [APM].[Milestones_Lookup] ([ProjectTypeID] int,\n[ProjectTypeCode] varchar(4),\n[ProjectType] varchar(100),\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "MilestoneID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "MilestoneID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "MilestoneCode"
+										},
+										"sink": {
+											"type": "String",
+											"name": "MilestoneCode"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "Milestone"
+										},
+										"sink": {
+											"type": "String",
+											"name": "Milestone"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "MilestoneOrder"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "MilestoneOrder"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "AuditPhaseId"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "AuditPhaseId"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[PostalOwners_Lookup]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[PostalOwners_Lookup]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[PostalOwners_Lookup]', 'U') IS NULL CREATE TABLE [APM].[PostalOwners_Lookup] ([ProjectTypeID] int,\n[ProjectTypeCode] varchar(4),\n[ProjectType] varchar(100),\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "PostalOwnerID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "PostalOwnerID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "PostalOwnerCode"
+										},
+										"sink": {
+											"type": "String",
+											"name": "PostalOwnerCode"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "PostalOwner"
+										},
+										"sink": {
+											"type": "String",
+											"name": "PostalOwner"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "PostalOwnerCategoryID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "PostalOwnerCategoryID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "SortOrder"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "SortOrder"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[ProjectTypesXREF]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[ProjectTypesXREF]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[ProjectTypesXREF]', 'U') IS NULL CREATE TABLE [APM].[ProjectTypesXREF] ([ProjectTypesxrefID] int,\n[ProjectID] int,\n[ProjectTypeID] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectTypesxrefID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectTypesxrefID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectTypeID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectTypeID"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[Recommendations]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[Recommendations]"
+						},
+						"copySink": {
+							"preCopyScript": null
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "RecommendationID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "RecommendationID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectID"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "NeedsExternalAction"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "NeedsExternalAction"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "RecommendationNumber"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "RecommendationNumber"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "RecommendationDetail"
+										},
+										"sink": {
+											"type": "String",
+											"name": "RecommendationDetail"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "PostalOwnerID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "PostalOwnerID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "PostalOwnerDetail"
+										},
+										"sink": {
+											"type": "String",
+											"name": "PostalOwnerDetail"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "HasRedaction"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "HasRedaction"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "RecommendationStatusID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "RecommendationStatusID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "MgmtResponseID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "MgmtResponseID"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "TargetImplementationDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "TargetImplementationDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActualDateClosed"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActualDateClosed"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "AgreedAction"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "AgreedAction"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "ImprovedServices"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "ImprovedServices"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "SafetySecurity"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "SafetySecurity"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "ITSecurity"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "ITSecurity"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "GoodwillBranding"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "GoodwillBranding"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "DataIntegrity"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "DataIntegrity"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "PostalOwnerCategoryID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "PostalOwnerCategoryID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "ResolutionStatus"
+										},
+										"sink": {
+											"type": "String",
+											"name": "ResolutionStatus"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "MgmtCommentsReceived"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "MgmtCommentsReceived"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "MgmtCommentsReceivedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "MgmtCommentsReceivedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ManagerCommentDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ManagerCommentDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DirectorActualDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DirectorActualDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ARCH_RecommendationID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ARCH_RecommendationID"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[EndReasons_Lookup]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[EndReasons_Lookup]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM2_0]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[EndReasons_Lookup]', 'U') IS NULL CREATE TABLE [APM].[EndReasons_Lookup] ([RiskCategoryID] int,\n[RiskCategoryCode] varchar(4),\n[RiskCategory] varchar(100),\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int,\n[SortOrder] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "EndReasonID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "EndReasonID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "EndReasonCode"
+										},
+										"sink": {
+											"type": "String",
+											"name": "EndReasonCode"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "EndReason"
+										},
+										"sink": {
+											"type": "String",
+											"name": "EndReason"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[Resolutions]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[Resolutions]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[Resolutions]', 'U') IS NULL CREATE TABLE [APM].[Resolutions] ([ResolutionID] int,\n[RecommendationID] int,\n[FieldName] varchar(35),\n[FieldValue] datetime,\n[CommentID] int,\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ResolutionID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ResolutionID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "RecommendationID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "RecommendationID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "FieldName"
+										},
+										"sink": {
+											"type": "String",
+											"name": "FieldName"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "FieldValue"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "FieldValue"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CommentID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CommentID"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[RiskCategories_Lookup]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[RiskCategories_Lookup]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[RiskCategories_Lookup]', 'U') IS NULL CREATE TABLE [APM].[RiskCategories_Lookup] ([RiskCategoryID] int,\n[RiskCategoryCode] varchar(4),\n[RiskCategory] varchar(100),\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int,\n[SortOrder] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "RiskCategoryID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "RiskCategoryID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "RiskCategoryCode"
+										},
+										"sink": {
+											"type": "String",
+											"name": "RiskCategoryCode"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "RiskCategory"
+										},
+										"sink": {
+											"type": "String",
+											"name": "RiskCategory"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "SortOrder"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "SortOrder"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[ProjectStatus_Lookup]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[ProjectStatus_Lookup]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[ProjectStatus_Lookup]', 'U') IS NULL CREATE TABLE [APM].[ProjectStatus_Lookup] ([RiskCategoryID] int,\n[RiskCategoryCode] varchar(4),\n[RiskCategory] varchar(100),\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int,\n[SortOrder] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectStatusID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectStatusID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "ProjectStatusCode"
+										},
+										"sink": {
+											"type": "String",
+											"name": "ProjectStatusCode"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "Description"
+										},
+										"sink": {
+											"type": "String",
+											"name": "Description"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[SignOffs]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[SignOffs]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[SignOffs]', 'U') IS NULL CREATE TABLE [APM].[SignOffs] ([SignOffID] int,\n[SignOffTypeID] int,\n[ProjectID] int,\n[SignOffDate] datetime,\n[SignOffBy] int,\n[Note] varchar(50),\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "SignOffID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "SignOffID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "SignOffTypeID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "SignOffTypeID"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "ProjectID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "ProjectID"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "SignOffDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "SignOffDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "SignOffBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "SignOffBy"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "Note"
+										},
+										"sink": {
+											"type": "String",
+											"name": "Note"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"tableName": "[APM].[Sources_Lookup]"
+						},
+						"destination": {
+							"tableName": "[APM2_0].[Sources_Lookup]"
+						},
+						"copySink": {
+							"preCopyScript": "BEGIN TRY\nIF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'APM') EXEC('Create Schema [APM]');\nEND TRY\nBEGIN CATCH\nif ERROR_NUMBER() <> 2714 throw;\nEND CATCH\n\nIF OBJECT_ID('[APM].[Sources_Lookup]', 'U') IS NULL CREATE TABLE [APM].[Sources_Lookup] ([SourceID] int,\n[SourceCode] varchar(4),\n[Source] varchar(100),\n[SourceType] varchar(1),\n[IsActive] bit,\n[ActiveChangeDate] datetime,\n[CreatedDate] datetime,\n[CreatedBy] int,\n[UpdatedDate] datetime,\n[UpdatedBy] int,\n[IsDeleted] bit,\n[DeletedDate] datetime,\n[DeletedBy] int);\n"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"type": "Int32",
+											"name": "SourceID"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "SourceID"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "SourceCode"
+										},
+										"sink": {
+											"type": "String",
+											"name": "SourceCode"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "Source"
+										},
+										"sink": {
+											"type": "String",
+											"name": "Source"
+										}
+									},
+									{
+										"source": {
+											"type": "String",
+											"name": "SourceType"
+										},
+										"sink": {
+											"type": "String",
+											"name": "SourceType"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsActive"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsActive"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "ActiveChangeDate"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "CreatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "CreatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "UpdatedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "UpdatedBy"
+										}
+									},
+									{
+										"source": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										},
+										"sink": {
+											"type": "Boolean",
+											"name": "IsDeleted"
+										}
+									},
+									{
+										"source": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										},
+										"sink": {
+											"type": "DateTime",
+											"name": "DeletedDate"
+										}
+									},
+									{
+										"source": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										},
+										"sink": {
+											"type": "Int32",
+											"name": "DeletedBy"
+										}
+									}
+								]
+							}
+						}
+					}
+				]
+			}
+		},
+		"folder": {
+			"name": "APM_POC"
+		},
 		"annotations": []
-	}
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
 }
